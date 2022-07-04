@@ -2,8 +2,8 @@
 tardis_config_version: v1.0
 
 supernova:
-  luminosity_requested: 9.44 log_lsun
-  time_explosion: 13 day
+  luminosity_requested: 8.2 log_lsun
+  time_explosion: 10 day
 
 atom_data: kurucz_cd23_chianti_H_He.h5
 
@@ -12,12 +12,12 @@ model:
           type: file
           filename: density.csv
           filetype: simple_ascii
-          v_inner_boundary: 11000 km/s
-          v_outer_boundary: 20000 km/s
+          v_inner_boundary: 7000 km/s
+          v_outer_boundary: 17000 km/s
   abundances:
           type: file
           filename: abund.csv
-          filetype: custom_composition
+          filetype: simple_ascii
 # structure:
 #   type: specific
 #   velocity:
