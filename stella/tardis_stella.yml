@@ -5,7 +5,8 @@ supernova:
   luminosity_requested: 8.2 log_lsun
   time_explosion: 10 day
 
-atom_data: kurucz_cd23_chianti_H_He.h5
+atom_data: kurucz_atom_chianti_many.h5
+# atom_data: kurucz_cd23_chianti_H_He.h5
 
 model:
   structure:
@@ -47,8 +48,9 @@ montecarlo:
   seed: 23111963
   no_of_packets: 4.0e+4
   iterations: 20
-  nthreads: 1
+  nthreads: 4
 
+# last_no_of_packets: 3.e+5  #  ~15 Gb for 1e5 packets
   last_no_of_packets: 1.e+5
   no_of_virtual_packets: 10
 
@@ -63,5 +65,8 @@ montecarlo:
 
 spectrum:
   start: 500 angstrom
-  stop: 20000 angstrom
+  stop: 15000 angstrom
   num: 10000
+# start: 500 angstrom
+# stop: 20000 angstrom
+# num: 10000
