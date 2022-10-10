@@ -7,8 +7,8 @@ supernova:
   distance: 20 Mpc
 
 
-atom_data: kurucz_atom_chianti_many.h5
-# atom_data: kurucz_cd23_chianti_H_He.h5
+# atom_data: kurucz_atom_chianti_many.h5
+atom_data: kurucz_cd23_chianti_H_He.h5
 
 model:
   structure:
