@@ -1,6 +1,6 @@
 #  For more information about TARDIS pipelines, please refer to:
 #
-#    https://tardis-sn.github.io/tardis/development/continuous_integration.html
+#    https://tardis-sn.github.io/tardis/contributing/development/continuous_integration.html
 
 name: docs
 
@@ -74,20 +74,6 @@ jobs:
 
       - name: Install package
         run: pip install -e .
-
-      - name: Set profiling option
-        run: |
-          if [[ $EVENT == pull_request_target ]]; then
-            echo "DISABLE_PROFILING=1" >> $GITHUB_ENV
-
-          else
-            echo "DISABLE_PROFILING=0" >> $GITHUB_ENV
-
-          fi
-
-          cat $GITHUB_ENV
-        env:
-          EVENT: ${{ github.event_name }}
 
       - name: Build documentation
         run: cd docs/ && make html CORES=auto

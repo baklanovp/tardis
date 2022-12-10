@@ -1,6 +1,6 @@
 #  For more information about TARDIS pipelines, please refer to:
 #
-#    https://tardis-sn.github.io/tardis/development/continuous_integration.html
+#    https://tardis-sn.github.io/tardis/contributing/development/continuous_integration.html
 
 name: pre-release
 
@@ -142,7 +142,7 @@ jobs:
         run: sleep 30
 
       - name: Approve pull request
-        uses: juliangruber/approve-pull-request-action@v1
+        uses: juliangruber/approve-pull-request-action@v2
         with:
           github-token: ${{ secrets.PR_APPROVAL_TOKEN }}
           number: ${{ steps.create-pr.outputs.pull-request-number }}
