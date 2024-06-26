@@ -12,11 +12,17 @@ on:
   pull_request:
     branches:
     - '*'
+    
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - labeled
 
 env:
   CACHE_NUMBER: 0  # increase to reset cache manually
-  PYTEST_FLAGS: --tardis-refdata=${{ github.workspace }}/tardis-refdata
-                --cov=tardis --cov-report=xml --cov-report=html
+  PYTEST_FLAGS: --tardis-refdata=${{ github.workspace }}/tardis-refdata --tardis-regression-data=${{ github.workspace }}/tardis-regression-data
+                --cov=tardis --cov-report=xml --cov-report=html 
   CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
 concurrency:
@@ -29,75 +35,79 @@ defaults:
 
 jobs:
   build:
-
+    if: github.repository_owner == 'tardis-sn'
     strategy:
       matrix:
+        pip: [true, false]
+        label: [osx-64, linux-64]
         include:
+          - label: osx-64
+            os: macos-latest
+            prefix: /Users/runner/miniconda3/envs/tardis
 
-        - os: ubuntu-latest
-          label: linux-64
-          prefix: /usr/share/miniconda3/envs/tardis
+          - label: linux-64
+            os: ubuntu-latest
+            prefix: /usr/share/miniconda3/envs/tardis
 
-        - os: macos-latest
-          label: osx-64
-          prefix: /Users/runner/miniconda3/envs/tardis
-
-    name: ${{ matrix.label }}
+    name: ${{ matrix.label }}-pip-${{ matrix.pip }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-      - name: Clone tardis-sn/tardis-refdata
-        uses: actions/checkout@v2
-        with:
-          repository: tardis-sn/tardis-refdata
-          path: tardis-refdata
-          lfs: false
+      - name: Setup LFS
+        uses: ./.github/actions/setup_lfs
 
-      - name: Create LFS file list
-        run: git lfs ls-files -l | cut -d' ' -f1 | sort > .lfs-assets-id
-        working-directory: tardis-refdata
-
-      - name: Restore LFS cache
-        uses: actions/cache@v2
-        id: lfs-cache
-        with:
-          path: tardis-refdata/.git/lfs
-          key: ${{ runner.os }}-lfs-${{ hashFiles('tardis-refdata/.lfs-assets-id') }}-v1
-
-      - name: Git LFS Pull
-        run: git lfs pull
-        working-directory: tardis-refdata
-        if: steps.lfs-cache.outputs.cache-hit != 'true'
+      - name: Download Lock File
+        run:  wget -q https://raw.githubusercontent.com/tardis-sn/tardis/master/conda-${{ matrix.label }}.lock
+        if: matrix.pip == true
       
-      - name: Git LFS Checkout
-        run: git lfs checkout
-        working-directory: tardis-refdata
-        if: steps.lfs-cache.outputs.cache-hit == 'true'
-
-      - name: Setup environment
-        uses: conda-incubator/setup-miniconda@v2
+      - name: Generate Cache Key
+        run: | 
+          file_hash=$(cat conda-${{ matrix.label }}.lock | shasum -a 256 | cut -d' ' -f1)
+          echo "file_hash=$file_hash" >> "${GITHUB_OUTPUT}"
+        id: cache-environment-key
+        
+      - uses: mamba-org/setup-micromamba@v1
         with:
-            miniforge-variant: Mambaforge
-            miniforge-version: latest
-            activate-environment: tardis
-            use-mamba: true
+          environment-file: conda-${{ matrix.label }}.lock
+          cache-environment-key: ${{ steps.cache-environment-key.outputs.file_hash }}
+          cache-downloads-key: ${{ steps.cache-environment-key.outputs.file_hash }}
+          environment-name: tardis
+          cache-environment: true
+          cache-downloads: true
 
-      - uses: actions/cache@v2
-        with:
-          path: ${{ matrix.prefix }}
-          key: conda-${{ matrix.label }}-${{ hashFiles('conda-${{ matrix.label }}.lock') }}-${{ env.CACHE_NUMBER }}
-        id: cache-conda
+      - name: Install package editable
+        run: |
+          pip install -e .
+          echo "TARDIS_PIP_PATH=tardis" >> $GITHUB_ENV
+        if: matrix.pip == false
 
-      - name: Update environment
-        run: mamba update -n tardis --file conda-${{ matrix.label }}.lock
-        if: steps.cache-conda.outputs.cache-hit != 'true'
+      - name: Install package git
+        run: pip install git+https://github.com/tardis-sn/tardis.git@${{ github.ref }}
+        if: matrix.pip == true
 
-      - name: Install package
-        run: pip install -e .
+      - name: Set pip path
+        if: matrix.pip == true
+        run: |
+          location_line=$(pip show tardis | grep -i -x "Location:.*")
+          directory_path=$(echo $location_line | awk -F " " '{print $2}')
+          echo "TARDIS_PIP_PATH=$directory_path" >> $GITHUB_ENV
+      
+      - name: Set install path
+        if: matrix.pip == false
+        run: |
+          directory_path="."
+          echo "TARDIS_PIP_PATH=$directory_path" >> $GITHUB_ENV
 
       - name: Run tests
         run: pytest tardis ${{ env.PYTEST_FLAGS }}
+        working-directory: ${{ env.TARDIS_PIP_PATH }}
+        if: always()
 
       - name: Upload to Codecov
         run: bash <(curl -s https://codecov.io/bash)
+      
+      - name: Refdata Generation tests
+        run: pytest tardis ${{ env.PYTEST_FLAGS }} --generate-reference
+        working-directory: ${{ env.TARDIS_PIP_PATH }}
+        if: contains(github.event.pull_request.labels.*.name, 'run-generation-tests') || github.ref == 'refs/heads/master'
